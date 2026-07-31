@@ -36,11 +36,27 @@ union of retrieval sets is used and the ambiguity is recorded. Tell the user whi
 routed to; a mis-route distorts every tier in the run, and saying it out loud is how it gets
 caught early.
 
-## 2. Seed
+## 2. Pick the mode, then seed
+
+**`orient`** — "familiarize me", "what is X", a question you'll follow up on yourself.
+2 perspectives, ~10–15 sources, 2 red-team lenses, single verifier. Minutes.
+
+**`deep`** — "deep dive", "thoroughly", a decision rests on it, or the topic is contested.
+4–6 sliced perspectives with an anti-collapse gate, 40+ sources, all 4 red-team lenses, and a
+three-verifier panel on load-bearing claims. Substantially longer and many more subagents.
+
+Default to `orient`. Use `deep` when the user asks for depth, or when the question is one where
+being wrong would cost them something. **State which mode you chose and why** — the difference
+in rigour is large enough that the user should know which one they got.
 
 ```bash
 node bin/research.js seed "<question>" --domain <d> --mode orient
+# or
+node bin/research.js seed "<question>" --domain <d> --mode deep
 ```
+
+If the retrieval keywords differ from the question as asked, pass `--query "<keywords>"` so the
+note keeps the real question as its title.
 
 ## 3. Web retrieval — required for web-heavy domains
 
