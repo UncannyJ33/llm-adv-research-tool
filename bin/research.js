@@ -6,7 +6,7 @@ const path = require('node:path');
 const { seed, defaultAdapters } = require('../lib/seed');
 const { Corpus } = require('../lib/corpus');
 const { Ledger } = require('../lib/ledger');
-const { RunState, todayLocal } = require('../lib/state');
+const { RunState, todayLocal, STAGES } = require('../lib/state');
 const { checkSpan } = require('../lib/spancheck');
 const { renderHtml } = require('../lib/render');
 const { exportRun } = require('../lib/export');
@@ -17,7 +17,7 @@ const { admit } = require('../lib/admissibility');
 const { dedupe } = require('../lib/dedupe');
 const { screen } = require('../lib/relevance');
 const { detectSingleSource } = require('../lib/provenance');
-const { sliceCorpus } = require('../lib/slice');
+const { sliceCorpus, hasText } = require('../lib/slice');
 const { findCollapsed } = require('../lib/overlap');
 const { registerClaim, verifyClaim, finalize } = require('../lib/pipeline');
 const openalex = require('../lib/retrieve/openalex');
@@ -80,6 +80,8 @@ const USAGE = `research — adversarially-verified research tool
                               Collapse correlated citations to independent sources
   provenance <run> "<term>" [--threshold 0.7]
                               Is a term owned by one origin? Exits 1 if single-source.
+  stage <run> <name> [--status complete|skipped|failed]
+                              Record that a pipeline stage ran, was skipped, or failed
   slice <run> --perspectives N [--shared N]
                               Partition the corpus into shared core + disjoint slices
   overlap <run> [--threshold 0.45]
@@ -261,12 +263,29 @@ async function main() {
     return;
   }
 
+  if (cmd === 'stage') {
+    const { state } = loadRun(positional[1]);
+    const name = positional[2];
+    if (!name) fail(`stage requires a stage name — one of: ${STAGES.join(', ')}`);
+    const status = flags.status && flags.status !== true ? String(flags.status) : 'complete';
+    if (!['complete', 'skipped', 'failed', 'pending'].includes(status)) {
+      fail(`unknown status: ${status} (complete|skipped|failed|pending)`);
+    }
+    state.setStage(name, status);
+    process.stdout.write(`${name}: ${status}\n`);
+    return;
+  }
+
   if (cmd === 'slice') {
     const { corpus } = loadRun(positional[1]);
     const k = Number(flags.perspectives) || 4;
     const out = sliceCorpus(corpus.all(), k, {
       sharedCount: flags.shared != null && flags.shared !== true ? Number(flags.shared) : undefined,
     });
+    if (out.unreadable.length) {
+      process.stdout.write(`unreadable: ${out.unreadable.length} sources have no abstract or `
+        + 'full text and were withheld from every slice (they stay in the bibliography)\n');
+    }
     process.stdout.write(`shared core: ${out.shared.join(', ') || 'none'}\n\n`);
     for (const s of out.slices) {
       process.stdout.write(`[${s.index}] ${s.label}  (seed ${s.seedId}, ${s.sourceIds.length} sources)\n`);
@@ -463,6 +482,19 @@ async function main() {
     const { dir, state, corpus, ledger } = loadRun(positional[1]);
     const counts = finalize({ corpus, ledger, state });
     corpus.save();
+    // Infer the stages that leave CHECKABLE evidence behind, rather than leaving them
+    // permanently "did not run". Six stages had no code path that could ever mark them
+    // complete, so the disclosure fired on every run and taught the reader to ignore it.
+    // Only inferred from facts on disk — never assumed.
+    if (ledger.all().length) state.setStage('synthesis', 'complete');
+    if (ledger.all().some(c => c.verification.length)) {
+      state.setStage('verification', 'complete');
+    }
+    const notesDir = path.join(dir, 'notes');
+    if (fs.existsSync(notesDir) && fs.readdirSync(notesDir).some(f => f.endsWith('.md'))) {
+      state.setStage('perspectives', 'complete');
+      state.setStage('interrogation', 'complete');
+    }
     state.setStage('assemble', 'complete');
 
     const briefPath = path.join(dir, 'brief.md');
@@ -487,8 +519,13 @@ async function main() {
     process.stdout.write(`${d.run_id}\n`);
     process.stdout.write(`question: ${d.question}\n`);
     process.stdout.write(`mode:     ${d.mode}   domain: ${d.domain} (${d.domain_confidence})\n`);
+    const unreadable = corpus.all().filter(r => !hasText(r)).length;
     process.stdout.write(`sources:  ${corpus.all().length}   claims: ${ledger.all().length}`
       + `   rejected: ${ledger.rejected().length}\n`);
+    if (unreadable) {
+      process.stdout.write(`unreadable: ${unreadable} of ${corpus.all().length} sources have `
+        + 'no text — they cannot support a claim\n');
+    }
     process.stdout.write(`next:     ${state.nextStage() || 'complete'}\n`);
     process.stdout.write('stages:\n');
     for (const [k, v] of Object.entries(d.stages)) {

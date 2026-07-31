@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { sliceCorpus, similarity } = require('../lib/slice');
+const { sliceCorpus, similarity, hasText } = require('../lib/slice');
 const { makeRecord } = require('../lib/corpus');
 
 const rec = (id, title, abstract, cites = 0) =>
@@ -141,4 +141,37 @@ test('an empty corpus returns no slices without throwing', () => {
   const { slices, shared } = sliceCorpus([], 3);
   assert.deepStrictEqual(slices, []);
   assert.deepStrictEqual(shared, []);
+});
+
+// A quarter of one real corpus had neither abstract nor full text. Those records cannot be
+// read by a perspective and can never support a claim, so handing them out silently starves
+// the agent that receives them.
+test('sources with no text are withheld from slices and reported', () => {
+  const readable = [
+    rec('S1', 'cortical blood flow', 'hemodynamic coupling in cortex'),
+    rec('S2', 'cortical hemodynamics', 'blood flow coupling measured'),
+    rec('S3', 'transducer pitch design', 'aperture and bandwidth geometry'),
+    rec('S4', 'transducer array bandwidth', 'element pitch and aperture'),
+  ];
+  const blank = [rec('S5', 'A title with no abstract', ''), rec('S6', 'Another textless record', '')];
+
+  const { slices, unreadable } = sliceCorpus([...readable, ...blank], 2, { sharedCount: 0 });
+  assert.deepStrictEqual(unreadable.sort(), ['S5', 'S6']);
+  const assigned = slices.flatMap(s => s.sourceIds);
+  assert.ok(!assigned.includes('S5'));
+  assert.ok(!assigned.includes('S6'));
+  assert.strictEqual(assigned.length, 4, 'every readable source is still assigned');
+});
+
+test('hasText treats stored full text as readable even with no abstract', () => {
+  assert.strictEqual(hasText(makeRecord({ id: 'S1', abstract: '' })), false);
+  assert.strictEqual(hasText(makeRecord({ id: 'S2', abstract: '   ' })), false);
+  assert.strictEqual(hasText(makeRecord({ id: 'S3', abstract: 'text' })), true);
+  assert.strictEqual(hasText(makeRecord({ id: 'S4', abstract: '', fulltext_path: 'fulltext/S4.txt' })), true);
+});
+
+test('a corpus of entirely textless sources yields no slices rather than empty ones', () => {
+  const { slices, unreadable } = sliceCorpus([rec('S1', 'no text', ''), rec('S2', 'also none', '')], 2);
+  assert.deepStrictEqual(slices, []);
+  assert.strictEqual(unreadable.length, 2);
 });

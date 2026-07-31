@@ -182,6 +182,20 @@ node bin/research.js assemble <run>
 `assemble` finalizes dispositions, applies tier caps, computes independence, and writes
 `report.html`.
 
+## 8b. Record what ran — and what you skipped
+
+`assemble` infers `perspectives`, `interrogation`, `synthesis` and `verification` from
+evidence on disk. It cannot infer `outline` or `redteam`. Mark those explicitly:
+
+```bash
+node bin/research.js stage <run> redteam --status complete
+node bin/research.js stage <run> outline --status skipped
+```
+
+**If you skipped a stage — for cost, time, or any other reason — mark it `skipped` and say so
+in your report.** An unmarked stage renders as "did not run", which is correct; a skipped stage
+you never disclosed is a run that looks more thorough than it was.
+
 ## 9. Report to the user
 
 State: the routed domain, source count by tier, claims kept / weakened / dropped / contested,
