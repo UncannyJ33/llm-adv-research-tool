@@ -1,0 +1,19 @@
+{
+  "id": "31740820",
+  "source": "MED",
+  "pmid": "31740820",
+  "doi": "10.1038/s41592-019-0611-8",
+  "title": "Functional ultrasound imaging of the brain",
+  "authorString": "Tanter M, Fink M.",
+  "journalTitle": "Nature Methods",
+  "pubYear": "2019",
+  "pubType": "journal article",
+  "citedByCount": 412,
+  "isOpenAccess": "Y",
+  "abstractText": "Functional ultrasound imaging resolves cerebral blood volume.",
+  "fullTextUrlList": {
+    "fullTextUrl": [
+      { "documentStyle": "pdf", "url": "https://example.org/oa/fus.pdf" }
+    ]
+  }
+}

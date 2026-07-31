@@ -1,0 +1,14 @@
+{
+  "name": "llm-adv-research-tool",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Adversarially-verified research tool. Synthesized briefs plus a curated primary-source bibliography.",
+  "main": "bin/research.js",
+  "bin": { "research": "./bin/research.js" },
+  "scripts": {
+    "test": "node --test",
+    "research": "node bin/research.js"
+  },
+  "dependencies": {},
+  "engines": { "node": ">=20" }
+}

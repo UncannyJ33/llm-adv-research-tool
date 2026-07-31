@@ -1,0 +1,14 @@
+{
+  "DOI": "10.1038/s41592-019-0611-8",
+  "title": ["Functional ultrasound imaging of the brain"],
+  "container-title": ["Nature Methods"],
+  "type": "journal-article",
+  "issued": { "date-parts": [[2019, 11]] },
+  "is-referenced-by-count": 412,
+  "author": [
+    { "given": "Mickael", "family": "Tanter" },
+    { "given": "Mathias", "family": "Fink" }
+  ],
+  "abstract": "<jats:p>Functional ultrasound imaging resolves cerebral blood volume.</jats:p>",
+  "update-to": []
+}

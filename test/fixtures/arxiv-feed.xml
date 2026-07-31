@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <id>http://arxiv.org/abs/2401.01234v2</id>
+    <updated>2024-02-01T00:00:00Z</updated>
+    <published>2024-01-02T00:00:00Z</published>
+    <title>Attention   Is All You
+      Need Again</title>
+    <summary>  We revisit the transformer architecture.  </summary>
+    <author><name>Ada Lovelace</name></author>
+    <author><name>Alan Turing</name></author>
+    <link href="http://arxiv.org/abs/2401.01234v2" rel="alternate" type="text/html"/>
+    <link title="pdf" href="http://arxiv.org/pdf/2401.01234v2" rel="related" type="application/pdf"/>
+    <arxiv:doi xmlns:arxiv="http://arxiv.org/schemas/atom">10.1000/xyz</arxiv:doi>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2402.09999v1</id>
+    <published>2024-02-20T00:00:00Z</published>
+    <title>A Second Paper</title>
+    <summary>Second abstract.</summary>
+    <author><name>Grace Hopper</name></author>
+  </entry>
+</feed>

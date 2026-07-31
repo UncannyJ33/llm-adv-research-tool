@@ -1,0 +1,25 @@
+# ---------------------------------------------------------------------------
+# PRIVATE — research content never enters version control.
+#
+# Everything below holds what you are researching, which is yours. The tool is
+# public; your questions, corpora, briefs and notes are not.
+# ---------------------------------------------------------------------------
+
+# Run artifacts: corpora, ledgers, source full text, rendered reports.
+runs/
+
+# Exported briefs and any Obsidian-bound notes.
+exports/
+
+# Anything you want kept local — design notes, drafts, scratch.
+private/
+
+# ---------------------------------------------------------------------------
+# Standard
+# ---------------------------------------------------------------------------
+node_modules/
+.DS_Store
+*.log
+npm-debug.log*
+.env
+.env.*
