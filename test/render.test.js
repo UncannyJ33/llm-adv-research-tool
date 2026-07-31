@@ -136,6 +136,56 @@ test('stages that never ran are named, separately from degradation', () => {
   assert.match(html, /redteam/);
 });
 
+// "Contested" asserts that verifiers disagreed. Showing only the last verification asserts
+// the disagreement without exhibiting it.
+test('a contested claim shows every verifier position, not just the last', () => {
+  const { state, corpus, ledger } = fixture();
+  const id = ledger.add(makeClaim({ text: 'Disputed.', cited_source_ids: ['S1'] }));
+  ledger.recordVerification(id, {
+    verdict: 'supported', reason: 'First verifier found direct support in the source text.',
+    quoted_span: 'x'.repeat(60), span_check: 'pass', span_role: 'result', evidence_basis: 'fulltext',
+  });
+  ledger.recordVerification(id, {
+    verdict: 'unsupported', reason: 'Second verifier read the source as reporting a different figure.',
+    quoted_span: null, span_check: 'no_span_offered', span_role: null, evidence_basis: 'fulltext',
+  });
+  ledger.setDisposition(id, 'contested');
+  const html = renderHtml({ state, corpus, ledger });
+  assert.ok(html.includes('First verifier found direct support'));
+  assert.ok(html.includes('Second verifier read the source'));
+  assert.match(html, /Verifier 1/);
+  assert.match(html, /Verifier 2/);
+  assert.match(html, /not resolved for you/i);
+});
+
+test('a dropped claim still shows only its final verification', () => {
+  const { state, corpus, ledger } = fixture();
+  const id = ledger.add(makeClaim({ text: 'Dropped.', cited_source_ids: ['S1'] }));
+  ledger.recordVerification(id, {
+    verdict: 'unsupported', reason: 'The source does not address the population claimed.',
+    quoted_span: null, span_check: 'no_span_offered', span_role: null, evidence_basis: 'fulltext',
+  });
+  ledger.setDisposition(id, 'dropped');
+  const html = renderHtml({ state, corpus, ledger });
+  assert.ok(!/Verifier 1/.test(html), 'non-contested claims stay compact');
+});
+
+test('secondary-only support is disclosed on the claim', () => {
+  const { state, corpus, ledger } = fixture();
+  const id = ledger.add(makeClaim({ text: 'Review sourced.', cited_source_ids: ['S1'] }));
+  ledger.get(id).secondary_reason = 'Support rests only on review articles (S1).';
+  ledger.setDisposition(id, 'weakened', { final_text: 'Review sourced.' });
+  assert.match(renderHtml({ state, corpus, ledger }), /review articles/i);
+});
+
+test('a panel shortfall explains itself in the ledger', () => {
+  const { state, corpus, ledger } = fixture();
+  const id = ledger.add(makeClaim({ text: 'Under-verified.', cited_source_ids: ['S1'] }));
+  ledger.get(id).disposition_reason = 'Load-bearing claim received 1 of 3 required panel verifications.';
+  ledger.setDisposition(id, 'dropped');
+  assert.match(renderHtml({ state, corpus, ledger }), /1 of 3 required panel/);
+});
+
 test('a fully complete run renders no incomplete notice', () => {
   const { state, corpus, ledger } = fixture();
   for (const s of ['seed', 'perspectives', 'interrogation', 'outline', 'synthesis', 'verification', 'redteam', 'assemble']) {
