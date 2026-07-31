@@ -19,6 +19,7 @@ const { screen } = require('../lib/relevance');
 const { detectSingleSource } = require('../lib/provenance');
 const { sliceCorpus, hasText } = require('../lib/slice');
 const { findCollapsed } = require('../lib/overlap');
+const { assessScope } = require('../lib/scope');
 const { withLock } = require('../lib/lock');
 const { registerClaim, verifyClaim, finalize } = require('../lib/pipeline');
 const openalex = require('../lib/retrieve/openalex');
@@ -69,6 +70,7 @@ function fail(msg) {
 
 const USAGE = `research — adversarially-verified research tool
 
+  scope "<question>"          Is the question specific enough to run? Exits 1 if too vague.
   seed "<question>" --domain <d> [--mode orient|deep] [--domains a,b] [--offline]
                               Route, retrieve, dedupe, tier, write the corpus
   source <run> <sourceId> [--fulltext]
@@ -126,6 +128,15 @@ async function main() {
   if (cmd === 'domains') {
     process.stdout.write(listDomains().join('\n') + '\n');
     return;
+  }
+
+  if (cmd === 'scope') {
+    const question = positional[1];
+    if (!question) fail('scope requires a question, e.g. scope "tell me about fungi"');
+    const s = assessScope(question);
+    process.stdout.write(JSON.stringify(s, null, 2) + '\n');
+    // Non-zero when too vague, so a skill step cannot start a run past a failed check.
+    process.exit(s.runnable ? 0 : 1);
   }
 
   if (cmd === 'list') {

@@ -47,7 +47,7 @@ Requires **Node ≥ 20**. Nothing to install.
 ```bash
 git clone https://github.com/UncannyJ33/llm-adv-research-tool.git
 cd llm-adv-research-tool
-npm test          # 327 tests, no network
+npm test          # 337 tests, no network
 ```
 
 Then, in Claude Code from this directory:
@@ -69,6 +69,24 @@ Then, in Claude Code from this directory:
 
 **The verification floor is identical in both.** `orient` trades breadth for speed, never the
 quote gate.
+
+### Both refuse to start on a vague question
+
+```bash
+node bin/research.js scope "tell me about fungi"   # exits 1
+```
+
+A vague request does not produce a vague brief — it produces a *confident* brief answering a
+question nobody asked, assembled from a corpus about everything. The verification machinery
+makes that more persuasive, not less, which is precisely why the gate sits before it.
+
+On a failed check the skills dispatch one cheap `scope-scout` agent, which does two or three
+searches and returns three or four concrete directions grounded in what the field is actually
+organised around. Then it **stops and waits** — there is deliberately no fallback that runs the
+research anyway, because the run is not worth doing yet.
+
+The check is mechanical (subject specificity plus whether an angle is stated) and therefore a
+first-pass signal, not the final word. The orchestrator can override it, but has to say why.
 
 To drive the pipeline yourself:
 

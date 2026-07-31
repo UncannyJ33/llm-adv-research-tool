@@ -18,6 +18,41 @@ good intentions.
 
 ---
 
+## 0. Is the question runnable? — do this before anything else
+
+```bash
+node bin/research.js scope "<the user's request>"
+```
+
+**Exit 1 means the request is too vague to research.** Do not seed. Do not route a domain. Do
+not spin up a single agent on it.
+
+A vague request does not produce a vague brief — it produces a confident brief answering a
+question nobody asked, built from a corpus about everything. That is worse than no answer,
+because it looks like an answer.
+
+**On exit 1:** dispatch one `scope-scout` subagent. It does two or three quick searches and
+comes back with three or four concrete directions. Present those to the user and **stop**.
+
+> I need a bit more direction before running this — "<request>" is broad enough that a
+> run would come back shallow. A few ways to take it:
+>
+> 1. …
+> 2. …
+> 3. …
+>
+> Or tell me the angle you care about and I'll work from that.
+
+**Then wait.** If the user has nothing further to add, say that you need a narrower question
+before running and stop there. **Do not fall back to running it on the vague topic anyway** —
+the whole point of the gate is that the run is not worth doing yet.
+
+The check is a first-pass signal, not the final word. Vagueness is genuinely subjective: if
+the user's intent is obvious from conversation context, you may proceed and **say why you
+overrode it**. Equally, a question can pass the check and still be too broad to be useful —
+`runnable-but-broad` means it will produce description rather than an answer, which is worth
+telling the user before you spend twenty minutes on it.
+
 ## 1. Route the domain
 
 `node bin/research.js domains`

@@ -22,6 +22,41 @@ verification-shaped performance rather than verification.
 
 ---
 
+## 0. Is the question runnable? — do this before anything else
+
+```bash
+node bin/research.js scope "<the user's request>"
+```
+
+**Exit 1 means the request is too vague to research.** Do not seed. Do not route a domain. Do
+not dispatch a perspective.
+
+This matters more here than in `orient-research`, because a deep run costs 15–25 subagent
+dispatches. Spending that on an unclear question produces a confident, well-verified brief
+answering a question nobody asked — and the verification machinery makes it *more* persuasive,
+not less.
+
+**On exit 1:** dispatch one `scope-scout` subagent. It does two or three quick searches and
+returns three or four concrete directions. Present them and **stop**.
+
+> Before I spend a deep run on this — "<request>" is broad enough that it would come back
+> shallow despite the cost. A few ways to take it:
+>
+> 1. …
+> 2. …
+> 3. …
+>
+> Or tell me the angle you care about and I'll work from that.
+
+**Then wait.** If the user has nothing further to add, say you need a narrower question and
+stop. **Do not fall back to running it anyway**, and do not silently downgrade to
+`orient-research` — if the question is not clear enough for a deep run, it is not clear enough
+for a fast one either.
+
+The check is a first-pass signal, not the final word. If the user's intent is obvious from
+context you may proceed and **say why you overrode it**. A `runnable-but-broad` verdict is
+worth surfacing before committing to the expense.
+
 ## 1. Route the domain
 
 List options with `node bin/research.js domains`. Pick by what the question *is*, not by where
