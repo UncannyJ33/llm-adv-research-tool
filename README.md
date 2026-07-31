@@ -47,16 +47,30 @@ Requires **Node ≥ 20**. Nothing to install.
 ```bash
 git clone https://github.com/UncannyJ33/llm-adv-research-tool.git
 cd llm-adv-research-tool
-npm test          # 298 tests, no network
+npm test          # 327 tests, no network
 ```
 
 Then, in Claude Code from this directory:
 
 ```
-/research  How does synaptic pruning relate to critical periods in development?
+/orient-research  How does synaptic pruning relate to critical periods in development?
+/deep-research    Did the symbiosis between mycorrhizal fungi and trees evolve once or many times?
 ```
 
-The skill walks the whole pipeline. To drive it yourself:
+**Two skills, two jobs.**
+
+| | `orient-research` | `deep-research` |
+|---|---|---|
+| For | "what is this", getting your bearings | contested questions, decisions resting on the answer |
+| Perspectives | 2, hand-picked | 4–6, corpus-sliced with an anti-collapse gate |
+| Verification | one verifier per claim | three-verifier panel on load-bearing claims |
+| Red team | 2 lenses | 4 lenses |
+| Cost | minutes, ~5 subagents | tens of minutes, 15–25 subagents |
+
+**The verification floor is identical in both.** `orient` trades breadth for speed, never the
+quote gate.
+
+To drive the pipeline yourself:
 
 ```bash
 node bin/research.js domains                      # list routable domains
@@ -69,12 +83,33 @@ node bin/research.js export  <run-id>             # -> exports/<title>.md
 Set `RESEARCH_MAILTO` to your email for better OpenAlex/Crossref rate limits. `--offline`
 skips retrieval entirely and marks the run degraded.
 
+### Installing the skills globally
+
+By default the skills only work from inside the repo. To use them from any directory, copy
+them into your user-level Claude Code config and **rewrite the relative tool path to an
+absolute one** — a globally-installed skill is invoked from arbitrary directories, where
+`node bin/research.js` resolves to nothing:
+
+```bash
+TOOL="$PWD"
+mkdir -p ~/.claude/skills ~/.claude/agents
+for s in orient-research deep-research; do
+  mkdir -p ~/.claude/skills/$s
+  sed "s|node bin/research.js|node $TOOL/bin/research.js|g" \
+    .claude/skills/$s/SKILL.md > ~/.claude/skills/$s/SKILL.md
+done
+cp .claude/agents/*.md ~/.claude/agents/
+```
+
+Runs and exports are always written under the tool directory, not your current one, so your
+research artifacts stay in a single place. If you move the repo, re-run the snippet above.
+
 ### Using it without Claude Code
 
 Nothing here is Claude-specific except the files in `.claude/`. The tool is a CLI plus a set
 of Markdown agent instructions, so any coding agent that can run shell commands can drive it —
-port `.claude/skills/research/SKILL.md` into whatever prompt format your tool uses, and give
-the verifier role the instructions in `.claude/agents/verifier.md`.
+port `.claude/skills/*/SKILL.md` into whatever prompt format your tool uses, and give the
+verifier role the instructions in `.claude/agents/verifier.md`.
 
 **One rule if you port it:** the verifier must have **no web access and no search tool**. Its
 entire evidence base is `research.js source`. A verifier that can search will "confirm" claims

@@ -1,12 +1,17 @@
 ---
-name: research
-description: Run an adversarially-verified research brief on any topic. Use when the user asks to research something, deep-dive a subject, get oriented on an unfamiliar concept, or find sources on a question.
+name: deep-research
+description: Full adversarial deep dive — sliced perspectives with an anti-collapse gate, a three-verifier panel on load-bearing claims, and four red-team lenses. Use when a question is contested, when a decision rests on the answer, or when the user asks for depth. For a fast pass, use orient-research instead.
 ---
 
-# research
+# deep-research
 
 Produce a synthesized brief **plus a curated source list**, where every claim has been checked
-against the text of the source it cites.
+against the text of the source it cites — and where the perspectives, the verifiers and the
+red team are all set against each other rather than working in the same direction.
+
+**This is the expensive mode.** 4–6 perspective subagents, up to three verifiers per
+load-bearing claim, four red-team lenses: 15–25 subagent dispatches. For a fast orientation
+pass, use `orient-research`.
 
 All state lives in `runs/<run-id>/`. **Never edit `corpus.jsonl`, `ledger.jsonl` or `run.json`
 by hand** — always go through `bin/research.js`. The CLI enforces gates that cannot be enforced
@@ -36,27 +41,17 @@ union of retrieval sets is used and the ambiguity is recorded. Tell the user whi
 routed to; a mis-route distorts every tier in the run, and saying it out loud is how it gets
 caught early.
 
-## 2. Pick the mode, then seed
-
-**`orient`** — "familiarize me", "what is X", a question you'll follow up on yourself.
-2 perspectives, ~10–15 sources, 2 red-team lenses, single verifier. Minutes.
-
-**`deep`** — "deep dive", "thoroughly", a decision rests on it, or the topic is contested.
-4–6 sliced perspectives with an anti-collapse gate, 40+ sources, all 4 red-team lenses, and a
-three-verifier panel on load-bearing claims. Substantially longer and many more subagents.
-
-Default to `orient`. Use `deep` when the user asks for depth, or when the question is one where
-being wrong would cost them something. **State which mode you chose and why** — the difference
-in rigour is large enough that the user should know which one they got.
+## 2. Seed
 
 ```bash
-node bin/research.js seed "<question>" --domain <d> --mode orient
-# or
 node bin/research.js seed "<question>" --domain <d> --mode deep
 ```
 
 If the retrieval keywords differ from the question as asked, pass `--query "<keywords>"` so the
-note keeps the real question as its title.
+exported note keeps the real question as its title.
+
+**Confirm with the user before starting** if they did not explicitly ask for depth — this mode
+costs substantially more than `orient-research` and takes considerably longer.
 
 ## 3. Web retrieval — required for web-heavy domains
 
@@ -95,12 +90,12 @@ whether the concept predates the term.
 
 Do not skip this because the corpus "looks thin". Thin is the symptom it exists to diagnose.
 
-## 4. Perspectives — `orient` uses 2, `deep` uses 4–6
+## 4. Perspectives — 4 to 6
 
 Read the corpus first. Choose perspectives grounded in **what the sources actually contain**,
 not from your own knowledge of the topic.
 
-In `deep` mode, partition the corpus rather than eyeballing it:
+Partition the corpus rather than eyeballing it:
 
 ```bash
 node bin/research.js slice <run> --perspectives 5
@@ -109,7 +104,7 @@ node bin/research.js slice <run> --perspectives 5
 Each slice gets the shared core plus a disjoint remainder. Dispatch one `perspective` subagent
 per slice, passing **only that slice's source ids**.
 
-### 4b. Overlap gate — `deep` only
+### 4b. Overlap gate
 
 After interrogation, before drafting claims:
 
@@ -152,25 +147,29 @@ A non-zero exit means the claim did not survive.
 the ledger doing its job, and gaming it converts the whole apparatus into theater. If a
 `WARNING` about a mis-declared span role appears, surface it; do not quietly proceed.
 
-### Panel escalation — `deep` only
+### Panel escalation
 
 Mark a claim `--load-bearing` when it sits in the lead, in the summary, or supports two or more
-sections. In `deep` mode those claims need **three independent verifier subagents**, each
-dispatched fresh so it forms its own view.
+sections. Those claims need **three independent verifier subagents**, each dispatched fresh so
+it forms its own view.
 
 `assemble` **drops** a load-bearing claim that received fewer than three verifications. That is
 deliberate: keeping it at single-verifier confidence while the report implies a panel reviewed
 it is worse than losing it, because the reader cannot tell the difference. A split panel is
 recorded as contested and never resolved for the reader.
 
-## 7. Red team — `orient` runs 2 lenses, `deep` runs 4
+## 7. Red team — all four lenses
 
 Always: `redteam-source-quality` and `redteam-recency`. For the top sources, have the recency
 lens run `research.js citing` and record its judgment with `research.js health`.
 
-`deep` adds `redteam-counter-evidence` (attacks the thesis, hunts for disconfirming
-literature) and `redteam-skeptic` (argues the case a hostile domain expert would make). Each
-is a separate dispatch — one agent asked for four critiques produces four shallow ones.
+Then `redteam-counter-evidence` (attacks the thesis, hunts for disconfirming literature) and
+`redteam-skeptic` (argues the case a hostile domain expert would make). Each is a **separate
+dispatch** — one agent asked for four critiques produces four shallow ones.
+
+Do not skip these to save time. On a real run the source-quality lens found a false negative
+in the tool's own independence check; the counter-evidence lens found that the brief's central
+premise was untested by any lane.
 
 ## 8. Assemble
 
@@ -198,8 +197,8 @@ you never disclosed is a run that looks more thorough than it was.
 
 ## 9. Report to the user
 
-State: the routed domain, source count by tier, claims kept / weakened / dropped / contested,
-and the path to `report.html`. Offer `node bin/research.js export <run>` if they want a
+**Lead with the answer to the question**, not with process. Then: the routed domain, source
+count by tier, claims kept / weakened / dropped / contested, and the path to `report.html`. Offer `node bin/research.js export <run>` if they want a
 portable markdown note (Obsidian-compatible frontmatter and wikilinks).
 
 **If the run was degraded, lead with that** — not as a footnote. A degraded run covered less
