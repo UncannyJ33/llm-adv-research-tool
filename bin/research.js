@@ -19,6 +19,7 @@ const { screen } = require('../lib/relevance');
 const { detectSingleSource } = require('../lib/provenance');
 const { sliceCorpus, hasText } = require('../lib/slice');
 const { findCollapsed } = require('../lib/overlap');
+const { withLock } = require('../lib/lock');
 const { registerClaim, verifyClaim, finalize } = require('../lib/pipeline');
 const openalex = require('../lib/retrieve/openalex');
 
@@ -220,7 +221,7 @@ async function main() {
   }
 
   if (cmd === 'search') {
-    const { state, corpus } = loadRun(positional[1]);
+    const { dir, state } = loadRun(positional[1]);
     const query = positional[2];
     if (!query) fail('search requires a query');
 
@@ -241,6 +242,12 @@ async function main() {
       }
     }
 
+    // Lock the whole read-modify-write. Without it, two concurrent searches each load the
+    // same id counter and the second save silently discards the first — observed in a real
+    // run as one id resolving to two different papers minutes apart.
+    return withLock(dir, () => {
+    const corpus = Corpus.load(dir);
+    const state = RunState.load(dir);
     // Dedupe against what the run already holds so a follow-up query cannot re-add a source
     // under a second id and manufacture false corroboration.
     const { kept } = dedupe([...corpus.all(), ...collected]);
@@ -260,7 +267,7 @@ async function main() {
       const r = corpus.get(id);
       process.stdout.write(`  ${id} [${r.tier}] ${(r.title || '').slice(0, 70)}\n`);
     }
-    return;
+    });
   }
 
   if (cmd === 'stage') {
@@ -336,8 +343,11 @@ async function main() {
   }
 
   if (cmd === 'ingest-web') {
-    const { dir, state, corpus } = loadRun(positional[1]);
+    const { dir } = loadRun(positional[1]);
     if (!flags.url || flags.url === true) fail('ingest-web requires --url');
+    return withLock(dir, () => {
+    const state = RunState.load(dir);
+    const corpus = Corpus.load(dir);
     const rec = fromResult({
       url: String(flags.url),
       title: flags.title === true ? '' : String(flags.title || ''),
@@ -354,7 +364,7 @@ async function main() {
     state.setCounts({ sources: corpus.all().length });
     process.stdout.write(`${id}  [${admitted[0].tier}/${admitted[0].tier_basis}]  `
       + `${admitted[0].source_class}\n`);
-    return;
+    });
   }
 
   if (cmd === 'ingest-fulltext') {
@@ -370,8 +380,10 @@ async function main() {
   }
 
   if (cmd === 'claim') {
-    const { ledger } = loadRun(positional[1]);
+    const { dir } = loadRun(positional[1]);
     if (!flags.text || flags.text === true) fail('claim requires --text');
+    return withLock(dir, () => {
+    const ledger = Ledger.load(dir);
     const sources = flags.sources && flags.sources !== true
       ? String(flags.sources).split(',').map(s => s.trim()).filter(Boolean)
       : [];
@@ -384,7 +396,7 @@ async function main() {
     });
     ledger.save();
     process.stdout.write(`${id}\n`);
-    return;
+    });
   }
 
   if (cmd === 'claims') {
@@ -399,7 +411,7 @@ async function main() {
   }
 
   if (cmd === 'verify') {
-    const { corpus, ledger } = loadRun(positional[1]);
+    const { dir } = loadRun(positional[1]);
     const claimId = positional[2];
     if (!claimId) fail('verify requires a claim id');
 
@@ -414,15 +426,21 @@ async function main() {
     if (!flags.verdict || flags.verdict === true) fail('verify requires --verdict');
     if (!flags.reason || flags.reason === true) fail('verify requires --reason (a reason, not a label)');
 
-    const record = verifyClaim({
+    const record = withLock(dir, () => {
+      const corpus = Corpus.load(dir);
+      const ledger = Ledger.load(dir);
+      const r = verifyClaim({
       corpus, ledger, claimId,
       sourceId: String(flags.source),
       verdict: String(flags.verdict),
       span: flags.span === true ? null : (flags.span || null),
       role: flags.role === true ? null : (flags.role || null),
       reason: String(flags.reason),
+      });
+      ledger.save();
+      corpus.save();
+      return r;
     });
-    ledger.save();
 
     process.stdout.write(`verdict:   ${record.verdict}\n`);
     process.stdout.write(`effective: ${record.effective_verdict}\n`);

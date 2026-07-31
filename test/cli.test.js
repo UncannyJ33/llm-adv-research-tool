@@ -122,3 +122,36 @@ test('ingest-fulltext attaches text and shifts the evidence basis', () => {
   const rec = JSON.parse(run(['source', runId, 'S1'], env));
   assert.strictEqual(rec.evidence_basis, 'fulltext');
 });
+
+// Two subagents issuing concurrent writes observed the same id resolving to different papers
+// minutes apart: each process loaded the same id counter and the second save discarded the
+// first. That corrupts the citation-to-source mapping the whole tool rests on.
+test('concurrent ingest-web calls do not lose or collide on ids', async () => {
+  const env = { RESEARCH_RUNS_DIR: tmp(), RESEARCH_OFFLINE: '1' };
+  run(['seed', 'race test', '--domain', 'software', '--date', '2026-07-30'], env);
+  const runId = '2026-07-30-race-test';
+
+  const { execFile } = require('node:child_process');
+  const { promisify } = require('node:util');
+  const execFileAsync = promisify(execFile);
+
+  const jobs = [];
+  for (let i = 0; i < 8; i++) {
+    jobs.push(execFileAsync('node', [BIN, 'ingest-web', runId,
+      '--url', `https://example.org/page-${i}`,
+      '--title', `Page ${i}`,
+      '--text', `Body text for page number ${i}.`,
+    ], { env: { ...process.env, ...env } }));
+  }
+  await Promise.all(jobs);
+
+  const listed = run(['status', runId], env);
+  assert.match(listed, /sources:\s+8/, `expected all 8 sources retained:\n${listed}`);
+
+  const ids = [];
+  for (let i = 1; i <= 8; i++) {
+    const rec = JSON.parse(run(['source', runId, `S${i}`], env));
+    ids.push(rec.title);
+  }
+  assert.strictEqual(new Set(ids).size, 8, 'every id maps to a distinct source');
+});
