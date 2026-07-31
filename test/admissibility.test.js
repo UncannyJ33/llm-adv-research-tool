@@ -118,6 +118,50 @@ test('a retraction with no notice DOI still excludes, with a plain reason', () =
   assert.match(excluded[0].exclusion_reason, /retracted|withdrawn/i);
 });
 
+// A cross-domain question has sources belonging to DIFFERENT tables. Applying one table to
+// everything tiered well-cited arXiv ML preprints as biomedical preprints, capping every
+// claim resting on them below verified.
+test('a cited ML preprint is primary under physical_cs even when the run also spans biomedical', () => {
+  const citedPreprint = makeRecord({
+    id: 'S1', kind: 'academic', work_type: 'preprint', is_preprint: true,
+    citation_count: 400, venue: { name: 'arXiv', type: 'repository', is_indexed: false },
+  });
+  assert.strictEqual(assignTier(citedPreprint, 'biomedical').tier, 'secondary');
+  assert.strictEqual(assignTier(citedPreprint, 'physical_cs').tier, 'primary');
+
+  const { admitted } = admit([citedPreprint], ['biomedical', 'physical_cs']);
+  assert.strictEqual(admitted[0].tier, 'primary', 'best-fitting candidate table wins');
+  assert.strictEqual(admitted[0].authority_domain, 'physical_cs');
+});
+
+test('the winning table is recorded in tier_basis so the decision stays auditable', () => {
+  const rec = makeRecord({
+    id: 'S1', kind: 'academic', work_type: 'preprint', is_preprint: true, citation_count: 400,
+  });
+  const { admitted } = admit([rec], ['biomedical', 'physical_cs']);
+  assert.match(admitted[0].tier_basis, /^physical_cs:/);
+});
+
+test('a single domain is unaffected and keeps its bare tier_basis', () => {
+  const journal = makeRecord({
+    id: 'S1', kind: 'academic', work_type: 'article', is_preprint: false,
+    venue: { name: 'Nature Methods', type: 'journal', is_indexed: true },
+  });
+  const { admitted } = admit([journal], 'biomedical');
+  assert.strictEqual(admitted[0].tier, 'primary');
+  assert.strictEqual(admitted[0].tier_basis, 'peer-reviewed-indexed');
+});
+
+test('multi-domain tiering never demotes below the single-domain result', () => {
+  const journal = makeRecord({
+    id: 'S1', kind: 'academic', work_type: 'article', is_preprint: false,
+    venue: { name: 'Journal of Neuroscience', type: 'journal', is_indexed: true },
+  });
+  const single = assignTier(journal, 'biomedical').tier;
+  const { admitted } = admit([journal], ['biomedical', 'physical_cs']);
+  assert.strictEqual(admitted[0].tier, single);
+});
+
 test('admit stamps tier onto every admitted record', () => {
   const { admitted } = admit([journal()], 'biomedical');
   assert.strictEqual(admitted[0].tier, 'primary');

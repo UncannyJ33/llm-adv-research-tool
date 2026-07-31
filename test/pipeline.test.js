@@ -408,6 +408,43 @@ test('a split panel is contested, never silently resolved', () => {
   assert.strictEqual(ledger.get(id).disposition, 'contested');
 });
 
+// Counting a lone `supported` among hedged verdicts as verified would make a panel WEAKER
+// than a single verifier — the majority's reservations would vanish from the output.
+test('a panel majority of partial support holds the claim below verified', () => {
+  const { corpus, ledger, state } = fixture();
+  const id = registerClaim(ledger, { text: 'Hedged.', cited_source_ids: ['S1'], load_bearing: true });
+  verifySupported(corpus, ledger, id, 1);
+  for (let i = 0; i < 2; i++) {
+    verifyClaim({
+      corpus, ledger, claimId: id, sourceId: 'S1', verdict: 'partially-supported',
+      span: SPAN, role: 'result', reason: `Verifier ${i}: the source supports a narrower version of this.`,
+    });
+  }
+  finalize({ corpus, ledger, state, mode: 'deep' });
+  assert.strictEqual(ledger.get(id).disposition, 'weakened');
+  assert.match(ledger.get(id).disposition_reason, /majority did not fully support/i);
+});
+
+test('a panel majority of full support keeps the claim', () => {
+  const { corpus, ledger, state } = fixture();
+  const id = registerClaim(ledger, { text: 'Solid.', cited_source_ids: ['S1'], load_bearing: true });
+  verifySupported(corpus, ledger, id, 2);
+  verifyClaim({
+    corpus, ledger, claimId: id, sourceId: 'S1', verdict: 'partially-supported',
+    span: SPAN, role: 'result', reason: 'One verifier reads the support as narrower than stated.',
+  });
+  finalize({ corpus, ledger, state, mode: 'deep' });
+  assert.strictEqual(ledger.get(id).disposition, 'kept');
+});
+
+test('a single verifier is unaffected by the majority rule', () => {
+  const { corpus, ledger, state } = fixture();
+  const id = registerClaim(ledger, { text: 'Single.', cited_source_ids: ['S1'] });
+  verifySupported(corpus, ledger, id, 1);
+  finalize({ corpus, ledger, state, mode: 'orient' });
+  assert.strictEqual(ledger.get(id).disposition, 'kept');
+});
+
 test('deep mode does not demand a panel for ordinary claims', () => {
   const { corpus, ledger, state } = fixture();
   const id = registerClaim(ledger, { text: 'Ordinary.', cited_source_ids: ['S1'] });

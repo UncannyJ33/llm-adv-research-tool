@@ -244,7 +244,7 @@ async function main() {
     const { kept } = dedupe([...corpus.all(), ...collected]);
     const fresh = kept.filter(r => !r.id);
     const { kept: relevant, filtered } = screen(fresh, query);
-    const { admitted, excluded } = admit(relevant, state.data.authority_table);
+    const { admitted, excluded } = admit(relevant, state.data.candidate_domains || state.data.authority_table);
 
     const added = [];
     for (const rec of admitted) added.push(corpus.add(rec));
@@ -325,7 +325,7 @@ async function main() {
       text: flags.text === true ? '' : String(flags.text || ''),
       snippet: flags.snippet === true ? '' : String(flags.snippet || ''),
     });
-    const { admitted, excluded } = admit([rec], state.data.authority_table);
+    const { admitted, excluded } = admit([rec], state.data.candidate_domains || state.data.authority_table);
     if (!admitted.length) {
       process.stdout.write(`excluded: ${excluded[0].exclusion_reason}\n`);
       process.exit(1);
