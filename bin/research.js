@@ -17,6 +17,8 @@ const { admit } = require('../lib/admissibility');
 const { dedupe } = require('../lib/dedupe');
 const { screen } = require('../lib/relevance');
 const { detectSingleSource } = require('../lib/provenance');
+const { sliceCorpus } = require('../lib/slice');
+const { findCollapsed } = require('../lib/overlap');
 const { registerClaim, verifyClaim, finalize } = require('../lib/pipeline');
 const openalex = require('../lib/retrieve/openalex');
 
@@ -78,6 +80,10 @@ const USAGE = `research — adversarially-verified research tool
                               Collapse correlated citations to independent sources
   provenance <run> "<term>" [--threshold 0.7]
                               Is a term owned by one origin? Exits 1 if single-source.
+  slice <run> --perspectives N [--shared N]
+                              Partition the corpus into shared core + disjoint slices
+  overlap <run> [--threshold 0.45]
+                              Compare notes/*.md. Exits 1 if perspectives collapsed.
 
   ingest-web <run> --url <u> --title <t> [--text <body>] [--snippet <s>]
                               Add an agent-fetched web source to the corpus
@@ -253,6 +259,49 @@ async function main() {
       process.stdout.write(`  ${id} [${r.tier}] ${(r.title || '').slice(0, 70)}\n`);
     }
     return;
+  }
+
+  if (cmd === 'slice') {
+    const { corpus } = loadRun(positional[1]);
+    const k = Number(flags.perspectives) || 4;
+    const out = sliceCorpus(corpus.all(), k, {
+      sharedCount: flags.shared != null && flags.shared !== true ? Number(flags.shared) : undefined,
+    });
+    process.stdout.write(`shared core: ${out.shared.join(', ') || 'none'}\n\n`);
+    for (const s of out.slices) {
+      process.stdout.write(`[${s.index}] ${s.label}  (seed ${s.seedId}, ${s.sourceIds.length} sources)\n`);
+      process.stdout.write(`    ${s.sourceIds.join(', ')}\n`);
+    }
+    return;
+  }
+
+  if (cmd === 'overlap') {
+    const { dir } = loadRun(positional[1]);
+    const notesDir = path.join(dir, 'notes');
+    if (!fs.existsSync(notesDir)) fail(`no notes/ directory in the run — nothing to compare`);
+    const notes = fs.readdirSync(notesDir)
+      .filter(f => f.endsWith('.md'))
+      .map(f => ({ id: f.replace(/\.md$/, ''), text: fs.readFileSync(path.join(notesDir, f), 'utf8') }));
+
+    if (notes.length < 2) {
+      process.stdout.write(`only ${notes.length} perspective note(s) — nothing to compare\n`);
+      return;
+    }
+
+    const pairs = findCollapsed(notes, {
+      threshold: flags.threshold ? Number(flags.threshold) : undefined,
+    });
+    if (!pairs.length) {
+      process.stdout.write(`${notes.length} perspectives, no collapse detected\n`);
+      return;
+    }
+    process.stdout.write('COLLAPSED perspectives — these wrote substantially the same notes:\n');
+    for (const p of pairs) {
+      process.stdout.write(`  ${p.a} <-> ${p.b}   similarity ${p.score.toFixed(2)}\n`);
+    }
+    process.stdout.write('\nRe-run the worse of each pair with the taken framings excluded.\n');
+    // Non-zero so the orchestrator cannot proceed past a failed diversity check.
+    process.exit(1);
   }
 
   if (cmd === 'provenance') {

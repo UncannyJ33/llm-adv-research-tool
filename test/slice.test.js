@@ -72,6 +72,55 @@ test('slices carry a distinct human-readable label', () => {
   for (const l of labels) assert.ok(l && l.length > 0);
 });
 
+// A real corpus produced buckets of 41 and 5 under pure nearest-seed assignment. A
+// perspective starved to a handful of sources is a crippled agent, not a viewpoint.
+test('slices are balanced — no slice absorbs the corpus', () => {
+  const many = [];
+  for (let i = 1; i <= 40; i++) {
+    many.push(rec(`S${i}`, 'Neural activity and cortical blood flow', 'hemodynamic coupling in cortex'));
+  }
+  many.push(rec('S41', 'Piezoelectric transducer pitch', 'aperture and bandwidth design'));
+  many.push(rec('S42', 'Neonatal bedside clinical monitoring', 'infant patient outcomes'));
+
+  const { slices } = sliceCorpus(many, 4, { sharedCount: 0 });
+  const sizes = slices.map(s => s.sourceIds.length);
+  const total = sizes.reduce((a, b) => a + b, 0);
+
+  // The cap is a balancing target during assignment, not an invariant: collapsing an
+  // undersized slice must place its sources somewhere, and that can push a bucket over.
+  // The property that matters is that no slice absorbs the corpus and none is unusable.
+  assert.ok(Math.max(...sizes) / total < 0.6, `one slice absorbed the corpus: ${sizes}`);
+  for (const n of sizes) assert.ok(n >= 2, `slice of ${n} is too small to interrogate: ${sizes}`);
+});
+
+// Forcing k slices onto a corpus that supports fewer manufactures the appearance of
+// diversity rather than the substance.
+test('a corpus that cannot support k perspectives returns fewer, not tiny ones', () => {
+  const records = [
+    rec('S1', 'cortical blood flow coupling', 'hemodynamic response in cortex'),
+    rec('S2', 'cortical blood flow response', 'hemodynamic coupling in the cortex'),
+    rec('S3', 'cortical hemodynamics', 'blood flow coupling measured in cortex'),
+  ];
+  const { slices } = sliceCorpus(records, 3, { sharedCount: 0 });
+  assert.ok(slices.length < 3, `expected fewer than 3 slices, got ${slices.length}`);
+  for (const s of slices) assert.ok(s.sourceIds.length >= 2);
+});
+
+test('slice indexes stay contiguous after collapsing', () => {
+  const many = [];
+  for (let i = 1; i <= 20; i++) many.push(rec(`S${i}`, 'same topic', 'identical body'));
+  many.push(rec('S21', 'utterly unrelated transducer pitch', 'aperture bandwidth'));
+  const { slices } = sliceCorpus(many, 5, { sharedCount: 0 });
+  slices.forEach((s, i) => assert.strictEqual(s.index, i));
+});
+
+test('the balance factor is configurable', () => {
+  const many = [];
+  for (let i = 1; i <= 20; i++) many.push(rec(`S${i}`, 'same topic here', 'identical body text'));
+  const { slices } = sliceCorpus(many, 4, { sharedCount: 0, balance: 1 });
+  for (const s of slices) assert.ok(s.sourceIds.length <= 5);
+});
+
 test('slicing is deterministic', () => {
   assert.strictEqual(
     JSON.stringify(sliceCorpus(corpus(), 3)),

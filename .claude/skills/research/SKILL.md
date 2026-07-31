@@ -79,11 +79,34 @@ whether the concept predates the term.
 
 Do not skip this because the corpus "looks thin". Thin is the symptom it exists to diagnose.
 
-## 4. Perspectives — `orient` uses 2
+## 4. Perspectives — `orient` uses 2, `deep` uses 4–6
 
 Read the corpus first. Choose perspectives grounded in **what the sources actually contain**,
-not from your own knowledge of the topic. Dispatch one `perspective` subagent each, giving each
-a different slice of the corpus so they do not converge on the same reading.
+not from your own knowledge of the topic.
+
+In `deep` mode, partition the corpus rather than eyeballing it:
+
+```bash
+node bin/research.js slice <run> --perspectives 5
+```
+
+Each slice gets the shared core plus a disjoint remainder. Dispatch one `perspective` subagent
+per slice, passing **only that slice's source ids**.
+
+### 4b. Overlap gate — `deep` only
+
+After interrogation, before drafting claims:
+
+```bash
+node bin/research.js overlap <run>
+```
+
+**Exit 1 means two perspectives wrote substantially the same notes.** Re-run the worse of each
+flagged pair with the taken framings explicitly excluded, then re-check.
+
+Do not proceed past a failed overlap check. A run whose perspectives collapsed *looks*
+multi-perspective and reads as well-corroborated while actually being one perspective repeated
+— which is the failure this gate exists to catch, and it is invisible in the finished brief.
 
 ## 5. Draft claims
 
@@ -113,10 +136,25 @@ A non-zero exit means the claim did not survive.
 the ledger doing its job, and gaming it converts the whole apparatus into theater. If a
 `WARNING` about a mis-declared span role appears, surface it; do not quietly proceed.
 
-## 7. Red team — `orient` runs 2 lenses
+### Panel escalation — `deep` only
 
-Dispatch `redteam-source-quality` and `redteam-recency`. For the top 3 sources, have the recency
+Mark a claim `--load-bearing` when it sits in the lead, in the summary, or supports two or more
+sections. In `deep` mode those claims need **three independent verifier subagents**, each
+dispatched fresh so it forms its own view.
+
+`assemble` **drops** a load-bearing claim that received fewer than three verifications. That is
+deliberate: keeping it at single-verifier confidence while the report implies a panel reviewed
+it is worse than losing it, because the reader cannot tell the difference. A split panel is
+recorded as contested and never resolved for the reader.
+
+## 7. Red team — `orient` runs 2 lenses, `deep` runs 4
+
+Always: `redteam-source-quality` and `redteam-recency`. For the top sources, have the recency
 lens run `research.js citing` and record its judgment with `research.js health`.
+
+`deep` adds `redteam-counter-evidence` (attacks the thesis, hunts for disconfirming
+literature) and `redteam-skeptic` (argues the case a hostile domain expert would make). Each
+is a separate dispatch — one agent asked for four critiques produces four shallow ones.
 
 ## 8. Assemble
 
