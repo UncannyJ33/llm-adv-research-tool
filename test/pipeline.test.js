@@ -323,6 +323,108 @@ test('ledger exposes dropped, weakened and contested separately', () => {
   assert.strictEqual(ledger.surviving().length, 1);
 });
 
+test('finalize flags a claim supported only by review articles', () => {
+  const { corpus, ledger, state } = fixture();
+  corpus.add(makeRecord({ title: 'A review', abstract: ABSTRACT, tier: 'primary', work_type: 'review' }));
+  const id = registerClaim(ledger, { text: 'Review sourced.', cited_source_ids: ['S2'] });
+  verifyClaim({
+    corpus, ledger, claimId: id, sourceId: 'S2', verdict: 'supported',
+    span: 'Resolution reached 100 um in the rodent cortex across all trials',
+    role: 'result', reason: 'The review states this directly in its summary of results.',
+  });
+  finalize({ corpus, ledger, state });
+  assert.strictEqual(ledger.get(id).secondary_only, true);
+  assert.match(ledger.get(id).secondary_reason, /review/i);
+});
+
+test('a claim with any primary support is not flagged secondary-only', () => {
+  const { corpus, ledger, state } = fixture();
+  corpus.add(makeRecord({ title: 'A review', abstract: ABSTRACT, tier: 'primary', work_type: 'review' }));
+  const id = registerClaim(ledger, { text: 'Mixed support.', cited_source_ids: ['S1', 'S2'] });
+  verifyClaim({
+    corpus, ledger, claimId: id, sourceId: 'S1', verdict: 'supported',
+    span: 'Resolution reached 100 um in the rodent cortex across all trials',
+    role: 'result', reason: 'The source reports this directly in its results section.',
+  });
+  finalize({ corpus, ledger, state });
+  assert.strictEqual(ledger.get(id).secondary_only, false);
+  assert.strictEqual(ledger.get(id).secondary_reason, null);
+});
+
+// --- escalation panel (deep mode) -----------------------------------------
+
+const SPAN = 'Resolution reached 100 um in the rodent cortex across all trials';
+const REASON = 'The source reports this directly in its results section.';
+
+function verifySupported(corpus, ledger, id, n = 1) {
+  for (let i = 0; i < n; i++) {
+    verifyClaim({
+      corpus, ledger, claimId: id, sourceId: 'S1', verdict: 'supported',
+      span: SPAN, role: 'result', reason: `Verifier ${i + 1}: ${REASON}`,
+    });
+  }
+}
+
+// Keeping a load-bearing claim at single-verifier confidence while the report implies a
+// panel reviewed it is worse than dropping it — the reader cannot tell the difference.
+test('deep mode drops a load-bearing claim that did not get its full panel', () => {
+  const { corpus, ledger, state } = fixture();
+  const id = registerClaim(ledger, { text: 'Load bearing.', cited_source_ids: ['S1'], load_bearing: true });
+  verifySupported(corpus, ledger, id, 1);
+  const counts = finalize({ corpus, ledger, state, mode: 'deep' });
+  assert.strictEqual(ledger.get(id).disposition, 'dropped');
+  assert.strictEqual(ledger.get(id).under_verified, true);
+  assert.strictEqual(counts.under_verified, 1);
+  assert.match(ledger.get(id).disposition_reason, /panel/i);
+});
+
+test('orient mode keeps the same claim on a single verifier', () => {
+  const { corpus, ledger, state } = fixture();
+  const id = registerClaim(ledger, { text: 'Load bearing.', cited_source_ids: ['S1'], load_bearing: true });
+  verifySupported(corpus, ledger, id, 1);
+  finalize({ corpus, ledger, state, mode: 'orient' });
+  assert.strictEqual(ledger.get(id).disposition, 'kept');
+});
+
+test('deep mode keeps a load-bearing claim with a unanimous panel', () => {
+  const { corpus, ledger, state } = fixture();
+  const id = registerClaim(ledger, { text: 'Load bearing.', cited_source_ids: ['S1'], load_bearing: true });
+  verifySupported(corpus, ledger, id, 3);
+  finalize({ corpus, ledger, state, mode: 'deep' });
+  assert.strictEqual(ledger.get(id).disposition, 'kept');
+  assert.strictEqual(ledger.get(id).under_verified, false);
+});
+
+test('a split panel is contested, never silently resolved', () => {
+  const { corpus, ledger, state } = fixture();
+  const id = registerClaim(ledger, { text: 'Load bearing.', cited_source_ids: ['S1'], load_bearing: true });
+  verifySupported(corpus, ledger, id, 2);
+  verifyClaim({
+    corpus, ledger, claimId: id, sourceId: 'S1', verdict: 'unsupported',
+    span: 'a span that is absent from this source document entirely',
+    role: 'result', reason: 'A third verifier could not locate supporting text in the source.',
+  });
+  finalize({ corpus, ledger, state, mode: 'deep' });
+  assert.strictEqual(ledger.get(id).disposition, 'contested');
+});
+
+test('deep mode does not demand a panel for ordinary claims', () => {
+  const { corpus, ledger, state } = fixture();
+  const id = registerClaim(ledger, { text: 'Ordinary.', cited_source_ids: ['S1'] });
+  verifySupported(corpus, ledger, id, 1);
+  finalize({ corpus, ledger, state, mode: 'deep' });
+  assert.strictEqual(ledger.get(id).disposition, 'kept');
+});
+
+test('mode falls back to the run state when not passed', () => {
+  const { corpus, ledger, state } = fixture();
+  state.data.mode = 'deep';
+  const id = registerClaim(ledger, { text: 'Load bearing.', cited_source_ids: ['S1'], load_bearing: true });
+  verifySupported(corpus, ledger, id, 1);
+  finalize({ corpus, ledger, state });
+  assert.strictEqual(ledger.get(id).disposition, 'dropped');
+});
+
 test('finalize persists counts to run state', () => {
   const { corpus, ledger, state } = fixture();
   registerClaim(ledger, { text: 'Unverified.', cited_source_ids: ['S1'] });
