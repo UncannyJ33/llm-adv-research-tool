@@ -78,8 +78,8 @@ test('a real journal with an ISSN counts as indexed', () => {
   assert.strictEqual(normalize(fixture).venue.name, 'Journal of Neuroscience');
 });
 
-test('is_core alone is enough even without an ISSN', () => {
-  assert.strictEqual(venueIsIndexed({ type: 'journal', is_core: true }), true);
+test('is_core alone is enough even without an ISSN, given a resolved venue', () => {
+  assert.strictEqual(venueIsIndexed({ type: 'journal', display_name: 'A Journal', is_core: true }), true);
 });
 
 test('a repository or preprint server is never indexed', () => {
@@ -93,4 +93,38 @@ test('a journal with neither ISSN nor core flag is not indexed', () => {
 
 test('a missing source object does not throw', () => {
   assert.strictEqual(venueIsIndexed({}), false);
+});
+
+// An indexing flag with no resolved venue is not evidence of peer review. A platform record
+// with a null display_name was tiered peer-reviewed-indexed, giving an unreviewed posting the
+// same standing as a Nature journal.
+test('a venue with no resolved name is not counted as indexed', () => {
+  assert.strictEqual(venueIsIndexed({ type: 'journal', display_name: null, issn_l: '1234-5678' }), false);
+  assert.strictEqual(venueIsIndexed({ type: 'journal', display_name: '   ', is_core: true }), false);
+  assert.strictEqual(venueIsIndexed({ type: 'journal', display_name: 'Real Journal', issn_l: '1234-5678' }), true);
+});
+
+// Twelve chapters of one textbook are one engagement with a source, not twelve.
+test('citing works collapse chapters of the same book to one entry', () => {
+  const { collapseByContainer } = require('../lib/retrieve/openalex');
+  const chapter = n => ({
+    id: `https://openalex.org/W${n}`,
+    primary_location: { source: { id: 'https://openalex.org/S999', display_name: 'A Textbook', type: 'book' } },
+  });
+  const paper = n => ({
+    id: `https://openalex.org/P${n}`,
+    primary_location: { source: { id: `https://openalex.org/J${n}`, display_name: 'A Journal', type: 'journal' } },
+  });
+  const { works } = collapseByContainer([chapter(1), chapter(2), chapter(3), paper(1), paper(2)]);
+  assert.strictEqual(works.length, 3, 'three book chapters collapse to one, two papers stay');
+});
+
+test('journals are never collapsed — they legitimately carry many independent papers', () => {
+  const { collapseByContainer } = require('../lib/retrieve/openalex');
+  const sameJournal = n => ({
+    id: `https://openalex.org/W${n}`,
+    primary_location: { source: { id: 'https://openalex.org/J1', display_name: 'Nature', type: 'journal' } },
+  });
+  const { works } = collapseByContainer([sameJournal(1), sameJournal(2), sameJournal(3)]);
+  assert.strictEqual(works.length, 3);
 });
