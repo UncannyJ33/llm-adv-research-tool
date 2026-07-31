@@ -47,7 +47,7 @@ Requires **Node ≥ 20**. Nothing to install.
 ```bash
 git clone https://github.com/UncannyJ33/llm-adv-research-tool.git
 cd llm-adv-research-tool
-npm test          # 254 tests, no network
+npm test          # 298 tests, no network
 ```
 
 Then, in Claude Code from this directory:
@@ -238,11 +238,46 @@ rat cortex" cited for a claim about humans. The span is genuine, so no gate fire
 rests on verifier judgment, and the test records it as a known pass rather than pretending
 otherwise.
 
+## Deep mode
+
+`deep` adds four things `orient` doesn't have, all enforced in code rather than requested in a
+prompt:
+
+**Perspective slicing.** `slice` partitions the corpus into a shared core (the most-cited
+sources, which every perspective needs) plus disjoint remainders. Assignment is capped and
+undersized slices collapse into their neighbours — on a real corpus, uncapped nearest-seed
+assignment produced buckets of 41 and 5, and a perspective holding five sources is a crippled
+agent rather than a different viewpoint. If a corpus only supports three clusters, you get
+three slices, not five tiny ones.
+
+**Anti-collapse gate.** `overlap` compares the perspectives' notes and **exits non-zero** if two
+wrote substantially the same thing. Slicing makes divergence possible; this checks whether it
+happened. A run whose perspectives collapsed reads as well-corroborated while being one
+perspective repeated — invisible in the finished brief, which is exactly why it needs a gate.
+
+**Escalation panel.** Load-bearing claims need three independent verifiers. A shortfall **fails
+closed**: the claim is dropped rather than kept at single-verifier confidence, because a reader
+cannot distinguish "one verifier agreed" from "a panel agreed" once it's in the brief. A split
+panel is contested and never resolved for you.
+
+**Contested synthesis.** Contested claims render *every* verifier's position. Showing only the
+final verdict asserts that verifiers disagreed without exhibiting the disagreement.
+
+Plus two further red-team lenses — `redteam-counter-evidence` (attacks the thesis, hunts
+disconfirming literature) and `redteam-skeptic` (argues the hostile domain expert's case) — and
+review-only support detection, since reviews restate primary results and often strengthen them
+in the retelling.
+
+```bash
+node bin/research.js slice   <run> --perspectives 5
+node bin/research.js overlap <run>                    # exits 1 on collapse
+```
+
 ## Status
 
-`orient` mode is complete. `deep` mode — perspective slicing with anti-collapse, a
-three-verifier escalation panel, two further red-team lenses, and contested-section synthesis —
-is designed but not built.
+Both `orient` and `deep` are complete. Deferred: citation-health *tracing* to the primary work
+(review-only support is flagged, not traced), cross-run corpus reuse, and mid-run interactive
+steering.
 
 ## License
 
