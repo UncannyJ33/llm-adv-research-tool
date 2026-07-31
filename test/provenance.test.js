@@ -12,7 +12,16 @@ test('orgOf reads a web source from its hostname', () => {
 });
 
 test('orgOf falls back to the first author cluster for academic sources', () => {
-  assert.strictEqual(orgOf(rec({ authors: ['Olaf Sporns', 'Martijn van den Heuvel'] })), 'author:olaf sporns');
+  assert.strictEqual(orgOf(rec({ authors: ['Olaf Sporns', 'Martijn van den Heuvel'] })), 'author:sporns o');
+});
+
+// Provenance inherits the author-key normalisation, so a lab publishing under both retrieval
+// name formats is no longer counted as two separate origins.
+test('orgOf is insensitive to retrieval name format', () => {
+  assert.strictEqual(
+    orgOf(rec({ authors: ['Hibbett D'] })),
+    orgOf(rec({ authors: ['David S. Hibbett'] }))
+  );
 });
 
 test('orgOf returns null when there is nothing to attribute', () => {
