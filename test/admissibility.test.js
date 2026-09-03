@@ -3,6 +3,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { matchesRule, assignTier, admit } = require('../lib/admissibility');
 const { makeRecord } = require('../lib/corpus');
+const { classifyWebSource } = require('../lib/domains');
 
 const journal = () => makeRecord({
   id: 'S1', kind: 'academic', work_type: 'article', is_preprint: false,
@@ -169,12 +170,18 @@ test('admit stamps tier onto every admitted record', () => {
   assert.strictEqual(admitted[0].admissible, true);
 });
 
-// The tiering half of the repo-discussion fix. Classification alone proves nothing: what
-// mattered was that `software` scored an issue thread `primary`, so the test that has teeth
-// is the one on assignTier, not on the URL rule.
+// The repo-discussion fix end to end. `source_class` MUST come from classifyWebSource, not
+// be written in as a literal: with the literal, the record already carried the answer the
+// fix produces and the test passed against the pre-fix table too — a gate test that cannot
+// fail (CLAUDE.md). Both halves have to be in the span for it to have teeth: the URL rule
+// that says an issue thread is not the repo, and the `software` table that then tiers it
+// below the repo it argues about.
 test('software tiers a repo discussion below the repo it argues about', () => {
-  const repo = makeRecord({ id: 'S5', kind: 'web', work_type: 'page', source_class: 'source-repo' });
-  const thread = makeRecord({ id: 'S6', kind: 'web', work_type: 'page', source_class: 'repo-discussion' });
+  const at = (id, url) =>
+    makeRecord({ id, kind: 'web', work_type: 'page', source_class: classifyWebSource(url) });
+
+  const repo = at('S5', 'https://github.com/ziglang/zig');
+  const thread = at('S6', 'https://github.com/ziglang/zig/issues/1234');
 
   assert.deepStrictEqual(assignTier(repo, 'software'), { tier: 'primary', tier_basis: 'official-source' });
   assert.deepStrictEqual(assignTier(thread, 'software'), { tier: 'weak', tier_basis: 'community' });

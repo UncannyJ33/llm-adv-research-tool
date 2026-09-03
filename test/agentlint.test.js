@@ -9,7 +9,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { lintAgents, parseFrontmatter, EVIDENCE_BOUNDED } = require('../lib/agentlint');
+const { lintAgents, parseFrontmatter, EVIDENCE_BOUNDED, EVIDENCE_BOUNDED_TOOLS } = require('../lib/agentlint');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -60,6 +60,31 @@ test('a verifier granted a web tool is a violation', () => {
       violations.some(v => v.rule === 'evidence-boundary' && v.agent === 'verifier'),
       `${tools} should raise evidence-boundary, got ${JSON.stringify(violations)}`
     );
+  }
+});
+
+// The denylist this replaced matched tool names against /web|search|fetch|browser|crawl|http/,
+// so a verifier holding Task — which dispatches a subagent that can search — lint clean, and
+// every mcp__* name did too. Verification is fail-closed: not-on-the-allowlist is the
+// violation, no matter what the tool is called.
+test('a verifier granted any tool outside the allowlist is a violation', () => {
+  for (const tools of [
+    'Bash, Read, Task',
+    'Bash, Read, mcp__playwright__browser_navigate',
+    'Bash, Read, Agent',
+    'Bash, Read, Skill',
+  ]) {
+    const { agentsDir, skillsDir } = bench(
+      { verifier: agent('verifier', tools) },
+      { r: mentioning('verifier') }
+    );
+    const { ok, violations } = lintAgents({ agentsDir, skillsDir });
+    assert.strictEqual(ok, false, `${tools} should not lint clean`);
+    const boundary = violations.find(v => v.rule === 'evidence-boundary' && v.agent === 'verifier');
+    assert.ok(boundary, `${tools} should raise evidence-boundary, got ${JSON.stringify(violations)}`);
+    // The detail has to name the offending tool: "something is wrong with your tools" is a
+    // warning nobody can act on.
+    assert.match(boundary.detail, new RegExp(tools.split(', ').pop()));
   }
 });
 
@@ -132,4 +157,10 @@ test('this repo\'s own agent layer lints clean', () => {
 
 test('verifier is the evidence-bounded role', () => {
   assert.ok(EVIDENCE_BOUNDED.includes('verifier'));
+});
+
+// The allowlist is the gate. Widening it is a deliberate act, and this test is the place it
+// has to be argued for: `research.js source` output is read with Bash, and nothing else.
+test('the evidence-bounded allowlist is exactly Bash and Read', () => {
+  assert.deepStrictEqual([...EVIDENCE_BOUNDED_TOOLS].sort(), ['Bash', 'Read']);
 });

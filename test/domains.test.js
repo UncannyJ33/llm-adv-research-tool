@@ -51,10 +51,27 @@ test('repo discussion threads are not official sources', () => {
   assert.strictEqual(classifyWebSource('https://codeberg.org/o/r/pulls/3'), 'repo-discussion');
 });
 
+// GitLab subgroups are ordinary, and a pattern demanding exactly owner/repo missed every
+// project inside one — putting the thread straight back at `primary / official-source`.
+test('a thread in a nested GitLab group is still a discussion', () => {
+  assert.strictEqual(
+    classifyWebSource('https://gitlab.com/group/subgroup/project/-/issues/12'),
+    'repo-discussion'
+  );
+  assert.strictEqual(
+    classifyWebSource('https://gitlab.com/a/b/c/d/-/merge_requests/5'),
+    'repo-discussion'
+  );
+});
+
 test('the repo, its code and its releases stay authoritative', () => {
   assert.strictEqual(classifyWebSource('https://github.com/ziglang/zig'), 'source-repo');
   assert.strictEqual(classifyWebSource('https://github.com/ziglang/zig/blob/master/src/main.zig'), 'source-repo');
   assert.strictEqual(classifyWebSource('https://github.com/ziglang/zig/releases/tag/0.13.0'), 'source-repo');
+  assert.strictEqual(classifyWebSource('https://github.com/ziglang/zig/tree/main/lib'), 'source-repo');
+  // A directory named `issues` inside the tree is code, not a thread. Deflation to
+  // `weak / community` is the same defect as the inflation the rule above prevents.
+  assert.strictEqual(classifyWebSource('https://github.com/foo/bar/blob/main/docs/issues/README.md'), 'source-repo');
 });
 
 // A journal volume at /issues/12 is not a bug tracker. The rule is anchored to the
@@ -67,6 +84,20 @@ test('the discussion rule does not leak onto non-forge urls', () => {
 test('a raw source file is repo material, not community commentary', () => {
   assert.strictEqual(
     classifyWebSource('https://raw.githubusercontent.com/nodejs/node/main/lib/fs.js'),
+    'source-repo'
+  );
+});
+
+// githubusercontent.com was matched by bare host, which also served every image pasted into
+// an issue comment and every profile picture. A screenshot dropped in a bug report is not a
+// primary source for anything.
+test('githubusercontent hosts other than raw are not repo material', () => {
+  assert.notStrictEqual(
+    classifyWebSource('https://user-images.githubusercontent.com/123/screenshot.png'),
+    'source-repo'
+  );
+  assert.notStrictEqual(
+    classifyWebSource('https://avatars.githubusercontent.com/u/12345?v=4'),
     'source-repo'
   );
 });

@@ -12,9 +12,16 @@ test('normalizes GitHub issue-search fields', () => {
   assert.strictEqual(r.year, 2021);
   assert.strictEqual(r.work_type, 'page');
   assert.strictEqual(r.is_preprint, false);
-  assert.strictEqual(r.citation_count, 16);
   assert.deepStrictEqual(r.authors, ['marler8997']);
   assert.deepStrictEqual(r.retrieved_from, ['github']);
+});
+
+// The fixture reports 16 comments. They must not land in citation_count: lib/slice.js sorts
+// by that field to build the shared core handed to every perspective, so a busy thread would
+// buy a seat there ahead of the papers it is arguing with.
+test('comment count is not laundered into citation_count', () => {
+  assert.strictEqual(fixture.comments, 16, 'fixture must still exercise a non-zero count');
+  assert.strictEqual(normalize(fixture).citation_count, 0);
 });
 
 test('classifies an issue URL as repo-discussion, not source-repo', () => {
