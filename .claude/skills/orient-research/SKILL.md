@@ -79,9 +79,12 @@ A degraded run announces itself — but only in the report, after you have paid 
 says so first. A `rate-limited` or `down` row means the corpus you are about to build will be
 thinner than it looks: **tell the user before seeding**, not afterwards.
 
-**Exit 1 means every probeable adapter is unreachable** and a seed would return nothing but
-web sources you ingest by hand. Say so and stop; a near-empty corpus produces a brief whose
-confidence comes from having found nothing to contradict it.
+**Exit 1 means every adapter with an endpoint is unreachable.** What that costs depends on the
+domain. `software` and `current_events` lean on web retrieval you drive yourself, so a run is
+still possible — thinner, and you have to say so. `biomedical`, `physical_cs` and
+`history_humanities` lean on the indexes, and with those down the run produces a brief whose
+confidence comes from having found nothing to contradict it. Tell the user which case they are
+in and let them choose. Do not seed silently past it.
 
 ## 2. Seed
 
