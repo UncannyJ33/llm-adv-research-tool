@@ -168,3 +168,14 @@ test('admit stamps tier onto every admitted record', () => {
   assert.strictEqual(admitted[0].tier_basis, 'peer-reviewed-indexed');
   assert.strictEqual(admitted[0].admissible, true);
 });
+
+// The tiering half of the repo-discussion fix. Classification alone proves nothing: what
+// mattered was that `software` scored an issue thread `primary`, so the test that has teeth
+// is the one on assignTier, not on the URL rule.
+test('software tiers a repo discussion below the repo it argues about', () => {
+  const repo = makeRecord({ id: 'S5', kind: 'web', work_type: 'page', source_class: 'source-repo' });
+  const thread = makeRecord({ id: 'S6', kind: 'web', work_type: 'page', source_class: 'repo-discussion' });
+
+  assert.deepStrictEqual(assignTier(repo, 'software'), { tier: 'primary', tier_basis: 'official-source' });
+  assert.deepStrictEqual(assignTier(thread, 'software'), { tier: 'weak', tier_basis: 'community' });
+});
