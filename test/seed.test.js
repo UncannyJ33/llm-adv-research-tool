@@ -35,7 +35,7 @@ test('seeds a run, dedupes across sources, and tiers by domain', async () => {
   const dir = tmp();
   const out = await seed({
     runsDir: dir, question: 'alpha beta', mode: 'orient',
-    domain: 'biomedical', date: '2026-07-30', adapters: fakeAdapters(),
+    domain: 'biomedical', date: '2026-07-30', adapters: fakeAdapters(), offline: false,
   });
 
   // Alpha appears from both openalex and europepmc with the same DOI -> one record.
@@ -49,7 +49,7 @@ test('writes corpus.jsonl and run.json to disk', async () => {
   const dir = tmp();
   const out = await seed({
     runsDir: dir, question: 'q', mode: 'orient',
-    domain: 'software', date: '2026-07-30', adapters: fakeAdapters(),
+    domain: 'software', date: '2026-07-30', adapters: fakeAdapters(), offline: false,
   });
   assert.ok(fs.existsSync(path.join(out.runDir, 'corpus.jsonl')));
   assert.ok(fs.existsSync(path.join(out.runDir, 'run.json')));
@@ -68,7 +68,7 @@ test('only queries the retrieval sets for the routed domain', async () => {
 
   await seed({
     runsDir: tmp(), question: 'q', mode: 'orient',
-    domain: 'software', date: '2026-07-30', adapters,
+    domain: 'software', date: '2026-07-30', adapters, offline: false,
   });
   // software retrieval set is ['web', 'openalex'] — europepmc must not be touched.
   assert.ok(called.includes('web'));
@@ -83,7 +83,7 @@ test('an adapter failure is recorded as a degradation, not swallowed', async () 
   });
   const out = await seed({
     runsDir: tmp(), question: 'q', mode: 'orient',
-    domain: 'biomedical', date: '2026-07-30', adapters,
+    domain: 'biomedical', date: '2026-07-30', adapters, offline: false,
   });
   assert.strictEqual(out.state.isDegraded(), true);
   const d = out.state.data.degradations[0];
@@ -96,7 +96,7 @@ test('the run still completes when one adapter fails', async () => {
   const adapters = fakeAdapters({ europepmc: async () => { throw new Error('503'); } });
   const out = await seed({
     runsDir: tmp(), question: 'q', mode: 'orient',
-    domain: 'biomedical', date: '2026-07-30', adapters,
+    domain: 'biomedical', date: '2026-07-30', adapters, offline: false,
   });
   assert.strictEqual(out.state.data.stages.seed, 'complete');
   assert.ok(out.corpus.all().length > 0);
@@ -111,7 +111,7 @@ test('retracted sources are excluded from the corpus but kept in the excluded li
   });
   const out = await seed({
     runsDir: tmp(), question: 'q', mode: 'orient',
-    domain: 'biomedical', date: '2026-07-30', adapters,
+    domain: 'biomedical', date: '2026-07-30', adapters, offline: false,
   });
   assert.ok(!out.corpus.all().some(r => r.title === 'Retracted work'));
   assert.strictEqual(out.excluded.length, 1);
@@ -121,7 +121,7 @@ test('retracted sources are excluded from the corpus but kept in the excluded li
 test('ambiguous routing unions retrieval sets and records the ambiguity', async () => {
   const out = await seed({
     runsDir: tmp(), question: 'q', mode: 'orient',
-    domains: ['software', 'physical_cs'], date: '2026-07-30', adapters: fakeAdapters(),
+    domains: ['software', 'physical_cs'], date: '2026-07-30', adapters: fakeAdapters(), offline: false,
   });
   assert.strictEqual(out.state.data.ambiguous, true);
   assert.deepStrictEqual(out.state.data.candidate_domains, ['software', 'physical_cs']);
@@ -162,7 +162,7 @@ test('an explicit offline:false overrides the environment variable', async () =>
 test('counts are recorded on the run state', async () => {
   const out = await seed({
     runsDir: tmp(), question: 'q', mode: 'orient',
-    domain: 'biomedical', date: '2026-07-30', adapters: fakeAdapters(),
+    domain: 'biomedical', date: '2026-07-30', adapters: fakeAdapters(), offline: false,
   });
   assert.strictEqual(out.state.data.counts.sources, out.corpus.all().length);
 });
