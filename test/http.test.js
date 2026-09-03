@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { backoffFor, hostOf, RETRYABLE, MAX_ATTEMPTS } = require('../lib/retrieve/http');
+const { backoffFor, hostOf, rateLimitHint, RETRYABLE, MAX_ATTEMPTS } = require('../lib/retrieve/http');
 
 // Three subagents searching in parallel triggered ten OpenAlex 429s in one run. A transient
 // throttle is not a real coverage limit, but with no retry it was recorded as one.
@@ -31,4 +31,14 @@ test('more than one attempt is made', () => {
 test('hostOf tolerates a malformed url', () => {
   assert.strictEqual(hostOf('https://api.openalex.org/works'), 'api.openalex.org');
   assert.strictEqual(hostOf('not a url'), 'unknown');
+});
+
+// The 429 hint named RESEARCH_MAILTO for every host. A throttled GitHub search told the user
+// to set a variable GitHub has never heard of.
+test('the rate-limit hint names the API that actually throttled', () => {
+  assert.match(rateLimitHint('openalex'), /RESEARCH_MAILTO/);
+  assert.match(rateLimitHint('crossref'), /RESEARCH_MAILTO/);
+  assert.match(rateLimitHint('github'), /GITHUB_TOKEN/);
+  assert.doesNotMatch(rateLimitHint('github'), /RESEARCH_MAILTO/);
+  assert.strictEqual(rateLimitHint('europepmc'), 'retry later');
 });

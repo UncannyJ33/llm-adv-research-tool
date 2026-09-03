@@ -63,3 +63,10 @@ test('the discussion rule does not leak onto non-forge urls', () => {
   assert.strictEqual(classifyWebSource('https://example.org/journal/issues/12'), 'community');
   assert.strictEqual(classifyWebSource('https://docs.python.org/3/whatsnew/3.12.html'), 'official-docs');
 });
+
+test('a raw source file is repo material, not community commentary', () => {
+  assert.strictEqual(
+    classifyWebSource('https://raw.githubusercontent.com/nodejs/node/main/lib/fs.js'),
+    'source-repo'
+  );
+});
