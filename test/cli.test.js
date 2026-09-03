@@ -174,3 +174,10 @@ test('lint-agents passes on this repo and exits 1 on a violation', () => {
     err => err.status === 1 && /evidence-boundary/.test(String(err.stderr)),
   );
 });
+
+test('doctor reports every adapter skipped and exits 0 under RESEARCH_OFFLINE', () => {
+  const out = run(['doctor'], { RESEARCH_OFFLINE: '1' });
+  const rows = out.trim().split('\n').filter(Boolean);
+  assert.ok(rows.length > 0);
+  assert.ok(rows.every(line => /^skipped\b/.test(line)), `expected every row skipped:\n${out}`);
+});

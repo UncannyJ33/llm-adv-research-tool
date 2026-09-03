@@ -12,6 +12,7 @@ const { renderHtml } = require('../lib/render');
 const { exportRun } = require('../lib/export');
 const { listDomains } = require('../lib/domains');
 const { lintAgents } = require('../lib/agentlint');
+const { doctor } = require('../lib/doctor');
 const { analyze } = require('../lib/independence');
 const { fromResult } = require('../lib/retrieve/web');
 const { admit } = require('../lib/admissibility');
@@ -114,6 +115,8 @@ const USAGE = `research — adversarially-verified research tool
   list                        List runs
   domains                     List routable domains
   lint-agents [--root <p>]    Check the agent layer's invariants. Exits 1 on violation.
+  doctor [--domain <d>] [--json]
+                              Probe each retrieval adapter. Exits 1 if none are reachable.
 
 Runs live in ${RUNS}
 `;
@@ -149,6 +152,29 @@ async function main() {
       process.stderr.write(`  ${v.agent || '-'}: ${v.rule} — ${v.detail}\n`);
     }
     fail(`${violations.length} agent-layer violation(s)`);
+  }
+
+  // A preflight for `seed`, not a replacement for its own degradation notices — those only
+  // surface after the run has already paid for retrieval. This lets a skill decide whether
+  // to wait on a rate limit before spending a run on a corpus that will come back thin.
+  if (cmd === 'doctor') {
+    const { ok, results } = await doctor({ domain: flags.domain });
+    if (flags.json) {
+      process.stdout.write(JSON.stringify({ ok, results }, null, 2) + '\n');
+    } else {
+      const statusWidth = Math.max(...results.map(r => r.status.length));
+      const nameWidth = Math.max(...results.map(r => r.adapter.length));
+      for (const r of results) {
+        process.stdout.write(
+          `${r.status.padEnd(statusWidth)}  ${r.adapter.padEnd(nameWidth)}  ${r.ms}ms  ${r.detail}\n`
+        );
+      }
+    }
+    if (!ok) {
+      const scope = flags.domain ? `for the "${flags.domain}" domain` : 'right now';
+      fail(`every probeable adapter ${scope} is unreachable — a seed would return only agent-ingested web sources`);
+    }
+    return;
   }
 
   if (cmd === 'scope') {
