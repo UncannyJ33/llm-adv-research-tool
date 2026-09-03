@@ -155,3 +155,22 @@ test('concurrent ingest-web calls do not lose or collide on ids', async () => {
   }
   assert.strictEqual(new Set(ids).size, 8, 'every id maps to a distinct source');
 });
+
+test('lint-agents passes on this repo and exits 1 on a violation', () => {
+  assert.match(run(['lint-agents']), /clean/);
+
+  // A synthetic root whose verifier can search. The verb must refuse it, because the
+  // failure it prevents — a verifier confirming from memory — is invisible in the output.
+  const root = tmp();
+  fs.mkdirSync(path.join(root, '.claude', 'agents'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.claude', 'skills', 'r'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.claude', 'agents', 'verifier.md'),
+    '---\nname: verifier\ndescription: d\ntools: Bash, Read, WebSearch\n---\n\nBody.\n');
+  fs.writeFileSync(path.join(root, '.claude', 'skills', 'r', 'SKILL.md'),
+    'Dispatch the `verifier` subagent.\n');
+
+  assert.throws(
+    () => run(['lint-agents', '--root', root]),
+    err => err.status === 1 && /evidence-boundary/.test(String(err.stderr)),
+  );
+});

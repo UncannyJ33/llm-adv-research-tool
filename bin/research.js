@@ -11,6 +11,7 @@ const { checkSpan } = require('../lib/spancheck');
 const { renderHtml } = require('../lib/render');
 const { exportRun } = require('../lib/export');
 const { listDomains } = require('../lib/domains');
+const { lintAgents } = require('../lib/agentlint');
 const { analyze } = require('../lib/independence');
 const { fromResult } = require('../lib/retrieve/web');
 const { admit } = require('../lib/admissibility');
@@ -112,6 +113,7 @@ const USAGE = `research — adversarially-verified research tool
                               Obsidian-ready markdown (default: ./exports)
   list                        List runs
   domains                     List routable domains
+  lint-agents [--root <p>]    Check the agent layer's invariants. Exits 1 on violation.
 
 Runs live in ${RUNS}
 `;
@@ -128,6 +130,25 @@ async function main() {
   if (cmd === 'domains') {
     process.stdout.write(listDomains().join('\n') + '\n');
     return;
+  }
+
+  // Non-zero on violation so a broken agent layer stops a pipeline instead of producing a
+  // run whose verifier could search. The check is mechanical for the same reason the span
+  // check is: an agent can be argued out of a prose constraint.
+  if (cmd === 'lint-agents') {
+    const base = path.join(path.resolve(flags.root || ROOT), '.claude');
+    const { ok, violations } = lintAgents({
+      agentsDir: path.join(base, 'agents'),
+      skillsDir: path.join(base, 'skills'),
+    });
+    if (ok) {
+      process.stdout.write(`agent layer clean (${base})\n`);
+      return;
+    }
+    for (const v of violations) {
+      process.stderr.write(`  ${v.agent || '-'}: ${v.rule} — ${v.detail}\n`);
+    }
+    fail(`${violations.length} agent-layer violation(s)`);
   }
 
   if (cmd === 'scope') {
