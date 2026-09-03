@@ -46,6 +46,7 @@ an agent must not be able to talk its way past a failed check:
 | `provenance` | a term is owned by one origin (evidence trap) |
 | `overlap` | two perspectives wrote substantially the same notes |
 | `lint-agents` | the agent layer breaks one of its own invariants |
+| `doctor` | every probeable retrieval adapter is unreachable |
 
 **`verify` deliberately rejects a `--span-check` flag.** The agent supplies a span; Node decides
 whether it matched. Passing the result in is a hard error. Do not add a way to bypass this.

@@ -92,14 +92,17 @@ To drive the pipeline yourself:
 
 ```bash
 node bin/research.js domains                      # list routable domains
+node bin/research.js doctor --domain biomedical   # are the channels up? exits 1 if none are
 node bin/research.js seed "<question>" --domain biomedical --mode orient
 node bin/research.js status  <run-id>
 node bin/research.js assemble <run-id>            # -> runs/<run-id>/report.html
 node bin/research.js export  <run-id>             # -> exports/<title>.md
+node bin/research.js lint-agents                  # agent-layer invariants; exits 1 on violation
 ```
 
-Set `RESEARCH_MAILTO` to your email for better OpenAlex/Crossref rate limits. `--offline`
-skips retrieval entirely and marks the run degraded.
+Set `RESEARCH_MAILTO` to your email for better OpenAlex/Crossref rate limits, and
+`GITHUB_TOKEN` to raise GitHub's 10 req/min unauthenticated search limit — both optional.
+`--offline` skips retrieval entirely and marks the run degraded.
 
 ### Installing the skills globally
 
@@ -260,7 +263,9 @@ lib/
   spancheck.js      the quote gate
   spanrole.js       section detection, cross-checks a declared span role
   corpus.js         corpus store, ids, full-text vs abstract evidence basis
-  retrieve/         openalex, europepmc, crossref, arxiv, web
+  retrieve/         openalex, europepmc, crossref, arxiv, github, web
+  doctor.js         retrieval preflight — probes each adapter before a run
+  agentlint.js      agent-layer invariants (the verifier's tool boundary)
   dedupe.js         DOI -> PMID -> arXiv -> title+year, richness-wins merge
   admissibility.js  retraction exclusion + domain-relative tiering
   independence.js   union-find over shared authors/cohorts

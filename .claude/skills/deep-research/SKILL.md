@@ -76,6 +76,20 @@ union of retrieval sets is used and the ambiguity is recorded. Tell the user whi
 routed to; a mis-route distorts every tier in the run, and saying it out loud is how it gets
 caught early.
 
+**Then check the channels are actually up, before you spend the run:**
+
+```bash
+node bin/research.js doctor --domain <d>
+```
+
+A degraded run announces itself — but only in the report, after you have paid for it. This
+says so first. A `rate-limited` or `down` row means the corpus you are about to build will be
+thinner than it looks: **tell the user before seeding**, not afterwards.
+
+**Exit 1 means every probeable adapter is unreachable** and a seed would return nothing but
+web sources you ingest by hand. Say so and stop; a near-empty corpus produces a brief whose
+confidence comes from having found nothing to contradict it.
+
 ## 2. Seed
 
 ```bash

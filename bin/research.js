@@ -164,9 +164,11 @@ async function main() {
     } else {
       const statusWidth = Math.max(...results.map(r => r.status.length));
       const nameWidth = Math.max(...results.map(r => r.adapter.length));
+      const msWidth = Math.max(...results.map(r => `${r.ms}ms`.length));
       for (const r of results) {
         process.stdout.write(
-          `${r.status.padEnd(statusWidth)}  ${r.adapter.padEnd(nameWidth)}  ${r.ms}ms  ${r.detail}\n`
+          `${r.status.padEnd(statusWidth)}  ${r.adapter.padEnd(nameWidth)}  `
+          + `${`${r.ms}ms`.padStart(msWidth)}  ${r.detail}\n`
         );
       }
     }
