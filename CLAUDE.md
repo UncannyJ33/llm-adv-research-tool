@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm test                          # full suite (337 tests), no network
+npm test                          # full suite, no network
 node --test test/spancheck.test.js  # one file
 node --test test/evals/            # FAILS — Node 25 resolves a bare dir as a module path
 node --test test/evals/planted-error.test.js   # use the file path instead
@@ -45,9 +45,18 @@ an agent must not be able to talk its way past a failed check:
 | `checkspan` / `verify` | span not found in stored source text, or effective verdict ≠ supported |
 | `provenance` | a term is owned by one origin (evidence trap) |
 | `overlap` | two perspectives wrote substantially the same notes |
+| `lint-agents` | the agent layer breaks one of its own invariants |
 
 **`verify` deliberately rejects a `--span-check` flag.** The agent supplies a span; Node decides
 whether it matched. Passing the result in is a hard error. Do not add a way to bypass this.
+
+**`lint-agents` checks the constraints this file states in prose.** The verifier's tool
+boundary lived in one line of frontmatter and nothing read it — a one-word edit could have
+granted it `WebSearch` with the whole suite still green. `lib/agentlint.js` reads that
+frontmatter now, and `test/agentlint.test.js` runs the check against this repo's own
+`.claude/` on every `npm test`, so the skills do not need to invoke it per run. Its
+evidence-bounded list is deliberately one role long: perspectives and red-team lenses are
+*supposed* to search, and a boundary rule that fired on all of them would be noise.
 
 ## Rules that exist because they were violated
 
@@ -61,7 +70,10 @@ Each of these encodes a real bug. Changing them will reintroduce it.
 - **Authority is domain-relative** (`lib/domains.js`, data not code). A language spec is primary
   for a software question and gray literature for a biomedical one. Ambiguous routing tiers each
   source under whichever candidate table fits it — one table applied to a cross-domain corpus
-  capped every ML preprint below verified.
+  capped every ML preprint below verified. The same defect has both signs: a bare
+  `github.com` pattern tiered every issue thread `primary / official-source`, so a stranger's
+  comment outranked the spec it contradicted, while `raw.githubusercontent.com` matched no
+  forge pattern and tiered actual source code `weak`. Classify the *surface*, not the host.
 - **Section detection may only weaken a claim, never strengthen it.** A detected `Limitations`
   heading overrides a declared `result`; a detected `Results` heading can never upgrade a span
   the verifier honestly called a limitation.
@@ -74,7 +86,11 @@ Each of these encodes a real bug. Changing them will reintroduce it.
 - **Concurrency requires the lock.** Corpus and ledger writes are read-modify-write on whole
   files. Any new mutating CLI verb must wrap `withLock(dir, …)` and **reload state inside the
   lock** — state read before acquiring it is already stale. Two parallel searches once produced
-  the same source id resolving to different papers.
+  the same source id resolving to different papers. **Writers take the lock; readers do not** —
+  `loadRun` parses `run.json` before acquiring anything — so every whole-file save goes through
+  `writeFileAtomic()` (write sibling temp, rename over the target). A plain `writeFileSync` is a
+  truncate followed by a write and a concurrent reader parses the gap: 16 truncated reads out of
+  250 in the test that guards it.
 - **Author names arrive in two formats.** Europe PMC returns `Hibbett D`, Crossref returns
   `David S. Hibbett`. Use `authorKey()` from `lib/independence.js` for any author comparison;
   naive string equality silently counted one person as two independent origins.
