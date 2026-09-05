@@ -19,6 +19,10 @@ private/
 # ---------------------------------------------------------------------------
 node_modules/
 .DS_Store
+
+# Tool scratch: the Playwright MCP server drops page snapshots and console logs
+# into the working directory.
+.playwright-mcp/
 *.log
 npm-debug.log*
 .env
